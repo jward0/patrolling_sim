@@ -189,7 +189,8 @@ void PatrolAgent::init(int argc, char** argv) {
     //Cmd_vel to backup:
     cmd_vel_pub  = nh.advertise<geometry_msgs::Twist>(string2, 1);
     
-    //Subscrever para obter dados de "odom" do robot corrente
+    // Subscrever para obter dados de "odom" do robot corrente
+    // Subscribe to get "odom" data from current robot
     odom_sub = nh.subscribe<nav_msgs::Odometry>(string1, 1, boost::bind(&PatrolAgent::odomCB, this, _1)); //size of the buffer = 1 (?)
     
     ros::spinOnce(); 
@@ -633,20 +634,20 @@ void PatrolAgent::backup(){
           ROS_INFO("The wall is too close! I need to do some backing up...");
           // Move the robot back...
           geometry_msgs::Twist cmd_vel;
-          cmd_vel.linear.x = -0.1;
-          cmd_vel.angular.z = 0.0;
+          cmd_vel.linear.x = -0.5;
+          cmd_vel.angular.z = 1.0;
           cmd_vel_pub.publish(cmd_vel);
       }
               
-      if(backUpCounter==20){
-          // Turn the robot around...
-          geometry_msgs::Twist cmd_vel;
-          cmd_vel.linear.x = 0.0;
-          cmd_vel.angular.z = 0.5;
-          cmd_vel_pub.publish(cmd_vel);
-      }
+      // if(backUpCounter==50){
+      //     // Turn the robot around...
+      //     geometry_msgs::Twist cmd_vel;
+      //     cmd_vel.linear.x = 0.0;
+      //     cmd_vel.angular.z = 0.5;
+      //     cmd_vel_pub.publish(cmd_vel);
+      // }
               
-      if(backUpCounter==100){
+      if(backUpCounter==25){
           // Stop the robot...
           geometry_msgs::Twist cmd_vel;
           cmd_vel.linear.x = 0.0;
@@ -673,7 +674,7 @@ void PatrolAgent::do_interference_behavior()
     // Stop the robot..         
     cancelGoal();
     ROS_INFO("Robot stopped");
-    ros::Duration delay(3); // seconds
+    ros::Duration delay(0.5); // seconds
     delay.sleep();
     ResendGoal = true;
 #else    

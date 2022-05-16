@@ -146,9 +146,19 @@ add_executable(GBS src/GBS_Agent.cpp)
 target_link_libraries(GBS PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
+add_executable(SBS src/SBS_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(SBS PatrolAgent ${catkin_LIBRARIES})
+
+## Declare a cpp executable 
 add_executable(SEBS src/SEBS_Agent.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(SEBS PatrolAgent ${catkin_LIBRARIES})
+
+## Declare a cpp executable 
+add_executable(S_SEBS src/S_SEBS_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(S_SEBS PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
 add_executable(CBLS src/CBLS_Agent.cpp)

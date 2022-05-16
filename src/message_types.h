@@ -41,7 +41,9 @@
 #define INTERFERENCE_MSG_TYPE 12
 
 #define GBS_MSG_TYPE 31
+#define SBS_MSG_TYPE 31
 #define SEBS_MSG_TYPE 32
+#define S_SEBS_MSG_TYPE 32
 #define CBLS_MSG_TYPE 32
 
 // Message types for DTAGreedy algorithm

@@ -6,6 +6,7 @@
   <arg name="use_move_base" default="true" />
   <arg name="use_srrg_localizer" default="false" />
   <arg name="use_spqrel_planner" default="false" />
+  <arg name="node_start_delay" default="0.0" />  
 
 
   <group ns="$(arg robotname)">    
@@ -24,9 +25,9 @@
         <param name="/$(arg robotname)/amcl/odom_frame_id" value="$(arg robotname)/odom"/>
         <param name="/$(arg robotname)/amcl/global_frame_id" value="map"/> <!--common map frame for all robots -->
     </group>
-        
+    
     <group if="$(arg use_move_base)">
-        <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+        <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@'">
             <rosparam file="$(find patrolling_sim)/params/move_base/costmap_common_params.yaml" command="load" ns="global_costmap" />
             <rosparam file="$(find patrolling_sim)/params/move_base/costmap_common_params.yaml" command="load" ns="local_costmap" />
             <rosparam file="$(find patrolling_sim)/params/move_base/local_costmap_params.yaml" command="load" />

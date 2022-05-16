@@ -50,7 +50,7 @@
 
 using namespace std;
 
-class GBS_Agent: public PatrolAgent {
+class SBS_Agent: public PatrolAgent {
 
 private:
 
@@ -71,7 +71,7 @@ public:
 
 
 
-void GBS_Agent::init(int argc, char** argv) {
+void SBS_Agent::init(int argc, char** argv) {
   
   PatrolAgent::init(argc,argv);
  
@@ -115,7 +115,7 @@ void GBS_Agent::init(int argc, char** argv) {
 }
 
 // Executed at any cycle when goal is not reached
-void GBS_Agent::processEvents() {
+void SBS_Agent::processEvents() {
       
     if (arrived && NUMBER_OF_ROBOTS>1){ //a different robot arrived at a vertex: update idleness table and keep track of last vertices positions of other robots.
 
@@ -138,24 +138,24 @@ void GBS_Agent::processEvents() {
     ros::spinOnce();
 }
 
-int GBS_Agent::compute_next_vertex() {
-    return greedy_bayesian_strategy(current_vertex, vertex_web, instantaneous_idleness, G1, G2, edge_min);
+int SBS_Agent::compute_next_vertex() {
+    return stochastic_bayesian_strategy(current_vertex, vertex_web, instantaneous_idleness, G1, G2, edge_min);
 }
 
 
-void GBS_Agent::send_results() {   
+void SBS_Agent::send_results() {   
     int value = ID_ROBOT;
     if (value==-1){value=0;}
     // [ID,msg_type,vertex]
     std_msgs::Int16MultiArray msg;   
     msg.data.clear();
     msg.data.push_back(value);
-    msg.data.push_back(GBS_MSG_TYPE);
+    msg.data.push_back(SBS_MSG_TYPE);
     msg.data.push_back(current_vertex);
     do_send_message(msg);
 }
 
-void GBS_Agent::receive_results() {
+void SBS_Agent::receive_results() {
   
     std::vector<int>::const_iterator it = vresults.begin();
     int id_sender = *it; it++;
@@ -164,7 +164,7 @@ void GBS_Agent::receive_results() {
     int value = ID_ROBOT;
     if (value==-1){value=0;}
     
-  	if ((id_sender==value) || (msg_type!=GBS_MSG_TYPE)) 
+  	if ((id_sender==value) || (msg_type!=SBS_MSG_TYPE)) 
     	return;
         
     robot_arrived = vresults[0];
@@ -175,7 +175,7 @@ void GBS_Agent::receive_results() {
 
 int main(int argc, char** argv) {
 
-    GBS_Agent agent;
+    SBS_Agent agent;
     agent.init(argc,argv);    
     agent.run();
 

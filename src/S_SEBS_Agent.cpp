@@ -50,33 +50,37 @@
 
 using namespace std;
 
-class GBS_Agent: public PatrolAgent {
+class S_SEBS_Agent: public PatrolAgent {
 
 private:
 
   double G1, G2;
   double edge_min;  
   int NUMBER_OF_ROBOTS;
+  int *tab_intention;
   bool arrived;
   uint vertex_arrived;
-  int robot_arrived;  
-
+  int robot_arrived;
+  bool intention;
+  uint vertex_intention;
+  int robot_intention;  
+      
 public:
     virtual void init(int argc, char** argv);
     virtual int compute_next_vertex();
+    virtual void processEvents();
     virtual void send_results();
     virtual void receive_results();    
-    virtual void processEvents();
 };
 
 
-
-void GBS_Agent::init(int argc, char** argv) {
+void S_SEBS_Agent::init(int argc, char** argv) {
   
   PatrolAgent::init(argc,argv);
- 
+  
   NUMBER_OF_ROBOTS = atoi(argv[3]);
-  arrived = false; 
+  arrived=false;
+  intention=false;
   
   /** Define G1 and G2 **/
   G1 = 0.1;
@@ -84,7 +88,8 @@ void GBS_Agent::init(int argc, char** argv) {
   //default:
   G2 = 100.0;
   edge_min = 1.0;
-  
+
+#if 0
   if (graph_file=="maps/grid/grid.graph") {  
     if (NUMBER_OF_ROBOTS == 1){G2 = 20.54;}
     if (NUMBER_OF_ROBOTS == 2){G2 = 17.70;}
@@ -107,55 +112,76 @@ void GBS_Agent::init(int argc, char** argv) {
     if (NUMBER_OF_ROBOTS == 4){G2 = 80.74;}
     if (NUMBER_OF_ROBOTS == 6){G2 = 77.0;}
     if (NUMBER_OF_ROBOTS == 8 || NUMBER_OF_ROBOTS == 12){G2 = 63.5;}    
-    edge_min = 50.0;
+    edge_min = 50.0;    
+  }
+#endif
+
+  printf("G1 = %f, G2 = %f\n", G1, G2); 
+  
+    std::stringstream paramss;
+    paramss << G1 << "," << G2;
+
+    ros::param::set("/algorithm_params",paramss.str());
+
     
+  //INITIALIZE tab_intention:
+  tab_intention = new int[NUMBER_OF_ROBOTS];
+  for (int i=0; i<NUMBER_OF_ROBOTS; i++){
+    tab_intention[i] = -1;
   }
   
-  printf("G1 = %f, G2 = %f\n", G1, G2); 
 }
 
 // Executed at any cycle when goal is not reached
-void GBS_Agent::processEvents() {
-      
+void S_SEBS_Agent::processEvents() {
+    
     if (arrived && NUMBER_OF_ROBOTS>1){ //a different robot arrived at a vertex: update idleness table and keep track of last vertices positions of other robots.
+
+        //ROS_INFO("Robot %d reached Goal %d.\n", robot_arrived, vertex_arrived);    
 
         //Update Idleness Table:
         double now = ros::Time::now().toSec();
                 
         for(int i=0; i<dimension; i++){
             if (i == vertex_arrived){
-                //Update last_visit[dimension]
-                last_visit[vertex_arrived] = now; 
-		//ROS_INFO("Just updated idleness of vertex %d", i);		
-            }         
-            //Update instantaneous_idleness[dimension]
-            instantaneous_idleness[i] = now - last_visit[i];
-        }
+                //actualizar last_visit[dimension]
+                last_visit[vertex_arrived] = now;   
+            }           
+            //actualizar instantaneous_idleness[dimension]
+            instantaneous_idleness[i] = now - last_visit[i];      
+	    //ROS_INFO("idleness[%d] = %f", i, instantaneous_idleness[i]);
+        }     
         
         arrived = false;
     }
-    
-    ros::spinOnce();
+
+    if (intention && NUMBER_OF_ROBOTS>1) {    
+        tab_intention[robot_intention] = vertex_intention;
+        //printf("tab_intention[ID=%d]=%d\n",robot_intention,tab_intention[robot_intention]);
+        intention = false;
+    }
+    // ros::spinOnce();    
 }
 
-int GBS_Agent::compute_next_vertex() {
-    return greedy_bayesian_strategy(current_vertex, vertex_web, instantaneous_idleness, G1, G2, edge_min);
+int S_SEBS_Agent::compute_next_vertex() {
+    return stochastic_state_exchange_bayesian_strategy(current_vertex, vertex_web, instantaneous_idleness, tab_intention, NUMBER_OF_ROBOTS, G1, G2, edge_min);
 }
 
 
-void GBS_Agent::send_results() {   
+void S_SEBS_Agent::send_results() {   
     int value = ID_ROBOT;
     if (value==-1){value=0;}
-    // [ID,msg_type,vertex]
+    // [ID,msg_type,vertex,intention]
     std_msgs::Int16MultiArray msg;   
     msg.data.clear();
     msg.data.push_back(value);
-    msg.data.push_back(GBS_MSG_TYPE);
+    msg.data.push_back(S_SEBS_MSG_TYPE);
     msg.data.push_back(current_vertex);
+    msg.data.push_back(next_vertex);    
     do_send_message(msg);
 }
 
-void GBS_Agent::receive_results() {
+void S_SEBS_Agent::receive_results() {
   
     std::vector<int>::const_iterator it = vresults.begin();
     int id_sender = *it; it++;
@@ -164,20 +190,24 @@ void GBS_Agent::receive_results() {
     int value = ID_ROBOT;
     if (value==-1){value=0;}
     
-  	if ((id_sender==value) || (msg_type!=GBS_MSG_TYPE)) 
+  	if ((id_sender==value) || (msg_type!=S_SEBS_MSG_TYPE)) 
     	return;
         
     robot_arrived = vresults[0];
     vertex_arrived = vresults[2];
     arrived = true;
+    robot_intention = vresults[0];
+    vertex_intention = vresults[3];
+    intention = true;
 }
-
 
 int main(int argc, char** argv) {
 
-    GBS_Agent agent;
+    S_SEBS_Agent agent;
     agent.init(argc,argv);    
     agent.run();
 
     return 0; 
 }
+
+
