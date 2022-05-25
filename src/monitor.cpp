@@ -944,6 +944,7 @@ int main(int argc, char** argv){  //pass TEAMSIZE GRAPH ALGORITHM
 		}
 
         dolog("main loop - write results begin");
+        nh.setParam("/simulation_abort", "true");
 
       } // if ((patrol_cnt == complete_patrol) || timeout_write_results)
       

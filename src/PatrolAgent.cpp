@@ -55,6 +55,9 @@ using namespace std;
 
 const std::string PS_path = ros::package::getPath("patrolling_sim"); 	//D.Portugal => get pkg path
 
+double last_pos_log = 60.0;
+FILE *positionstimecsvfile;
+
 
 void PatrolAgent::init(int argc, char** argv) {
         /*
@@ -120,6 +123,12 @@ void PatrolAgent::init(int argc, char** argv) {
     communication_delay = 0.0;
     lost_message_rate = 0.0;
     goal_reached_wait = 0.0;
+
+    if (ID_ROBOT == 0) {
+        string positionstimecsvfilename = to_string(ID_ROBOT) + "_position_log.csv";
+        positionstimecsvfile = fopen (positionstimecsvfilename.c_str(),"a");
+    }
+
     /* Define Starting Vertex/Position (Launch File Parameters) */
 
     ros::init(argc, argv, "patrol_agent");  // will be replaced by __name:=XXXXXX
@@ -726,14 +735,31 @@ void PatrolAgent::send_positions()
 
 void PatrolAgent::receive_positions()
 {
-    
+    // Log all robot positions every 2 seconds
+
+    if (ID_ROBOT == 0) {
+
+        double current_time = ros::Time::now().toSec();
+        if (current_time - last_pos_log > 2.0) {
+
+            last_pos_log = current_time;
+
+            fprintf(positionstimecsvfile, "%.1f;",current_time);
+
+            for (uint8_t ndx=0; ndx < 12; ndx++) {
+                fprintf(positionstimecsvfile, "%.1f; %.1f;",xPos[ndx],yPos[ndx]);
+            } 
+            fprintf(positionstimecsvfile, "\n");
+            fflush(positionstimecsvfile);
+        }
+    }
 }
 
 void PatrolAgent::positionsCB(const nav_msgs::Odometry::ConstPtr& msg) { //construir tabelas de posições
         
 //     printf("Construir tabela de posicoes (receber posicoes), ID_ROBOT = %d\n",ID_ROBOT);    
         
-    char id[20]; //identificador do robot q enviou a msg d posição...
+    char id[20]; //robot identifier that sends the position msg...
     strcpy( id, msg->header.frame_id.c_str() );
     //int stamp = msg->header.seq;
 //     printf("robot q mandou msg = %s\n", id);

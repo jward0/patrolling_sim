@@ -535,8 +535,9 @@ uint stochastic_state_exchange_bayesian_strategy (uint current_vertex, vertex *v
 	
 		//printf("COUNT = %d\n",count);
 		//printf("Vertex [%d]; PP (without state exchange) = %f\n", vertex_web[current_vertex].id_neigh[i], posterior_probability[i]);
+		// Current gain state scaling: squared
 		double P_gain_state = ( pow(2,nr_robots-count) ) / ( pow(2,nr_robots) - 1.0);	
-		posterior_probability[i] *= P_gain_state;
+		posterior_probability[i] *= pow(P_gain_state, 2);
 		//printf("Vertex [%d]; PP (depois) = %f\n", vertex_web[current_vertex].id_neigh[i], posterior_probability[i]);
 		
       }

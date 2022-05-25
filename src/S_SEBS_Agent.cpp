@@ -89,7 +89,7 @@ void S_SEBS_Agent::init(int argc, char** argv) {
   G2 = 100.0;
   edge_min = 1.0;
 
-#if 0
+#if 1
   if (graph_file=="maps/grid/grid.graph") {  
     if (NUMBER_OF_ROBOTS == 1){G2 = 20.54;}
     if (NUMBER_OF_ROBOTS == 2){G2 = 17.70;}
