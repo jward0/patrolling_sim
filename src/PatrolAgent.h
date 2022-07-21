@@ -75,6 +75,7 @@ protected:
     bool ResendGoal; // Send the same goal again (if goal failed...)
     bool interference;
     double last_interference;
+    bool crashed;
     bool goal_complete;
     bool initialize;
     bool end_simulation;
@@ -129,6 +130,7 @@ public:
     
     void send_goal_reached();
     bool check_interference (int ID_ROBOT);
+    bool check_collision (int ID_ROBOT);
     void do_interference_behavior();
     void backup();
     

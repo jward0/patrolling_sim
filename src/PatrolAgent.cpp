@@ -114,6 +114,7 @@ void PatrolAgent::init(int argc, char** argv) {
 #endif
       
     interference = false;
+    crashed = false;
     ResendGoal = false;
     goal_complete = true;
     last_interference = 0;
@@ -313,10 +314,10 @@ void PatrolAgent::run() {
             onGoalComplete();  // can be redefined
             resend_goal_count=0;
         }
-        else { // goal not complete (active)
+        else if (not crashed) { // goal not complete (active)
             if (interference) {
                 do_interference_behavior();
-            }       
+            }    
             
             if (ResendGoal) {
                 //Send the goal to the robot (Global Map)
@@ -588,7 +589,8 @@ void PatrolAgent::goalFeedbackCallback(const move_base_msgs::MoveBaseFeedbackCon
     
     int value = ID_ROBOT;
     if (value==-1){ value = 0;}
-    interference = check_interference(value);    
+    interference = check_interference(value);
+    crashed = check_collision(value);    
 }
 
 void PatrolAgent::send_goal_reached() {
@@ -631,6 +633,29 @@ bool PatrolAgent::check_interference (int robot_id){ //verificar se os robots es
     return false;
     
 }
+
+bool PatrolAgent::check_collision (int robot_id){ //verificar se os robots estao proximos
+    
+    int i;
+    double dist_quad;
+    
+    /* Poderei usar TEAMSIZE para afinar */
+    for (i=0; i<12; i++){ //percorrer vizinhos (assim asseguro q cada interferencia é so encontrada 1 vez)
+
+        if (i != robot_id) {
+        
+            dist_quad = (xPos[i] - xPos[robot_id])*(xPos[i] - xPos[robot_id]) + (yPos[i] - yPos[robot_id])*(yPos[i] - yPos[robot_id]);
+            
+            if (dist_quad <= 0.25*0.25){    //robots are ... meter or less apart
+                cancelGoal();
+                ROS_INFO("Robot stopped");
+                return true;
+            }    
+        }   
+    }
+    return false; 
+}
+
 
 void PatrolAgent::backup(){
     
@@ -727,9 +752,10 @@ void PatrolAgent::send_positions()
 
     msg.pose.pose.position.x = xPos[idx]; //send odometry.x
     msg.pose.pose.position.y = yPos[idx]; //send odometry.y
-  
+
     positions_pub.publish(msg);
     ros::spinOnce();
+
 }
 
 
@@ -747,7 +773,7 @@ void PatrolAgent::receive_positions()
             fprintf(positionstimecsvfile, "%.1f;",current_time);
 
             for (uint8_t ndx=0; ndx < 12; ndx++) {
-                fprintf(positionstimecsvfile, "%.1f; %.1f;",xPos[ndx],yPos[ndx]);
+                fprintf(positionstimecsvfile, "%.3f; %.3f;",xPos[ndx],yPos[ndx]);
             } 
             fprintf(positionstimecsvfile, "\n");
             fflush(positionstimecsvfile);
@@ -758,7 +784,7 @@ void PatrolAgent::receive_positions()
 void PatrolAgent::positionsCB(const nav_msgs::Odometry::ConstPtr& msg) { //construir tabelas de posições
         
 //     printf("Construir tabela de posicoes (receber posicoes), ID_ROBOT = %d\n",ID_ROBOT);    
-        
+
     char id[20]; //robot identifier that sends the position msg...
     strcpy( id, msg->header.frame_id.c_str() );
     //int stamp = msg->header.seq;
@@ -795,7 +821,7 @@ void PatrolAgent::positionsCB(const nav_msgs::Odometry::ConstPtr& msg) { //const
         }   
 //      printf ("Position Table:\n frame.id = %s\n id_robot = %d\n xPos[%d] = %f\n yPos[%d] = %f\n\n", id, idx, idx, xPos[idx], idx, yPos[idx] );       
     }
-    
+
     receive_positions();
 }
 
