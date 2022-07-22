@@ -43,6 +43,7 @@
 #include <actionlib/client/simple_action_client.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include <time.h>
 #include <nav_msgs/Odometry.h>
 #include <std_srvs/Empty.h>
 
@@ -126,7 +127,10 @@ void PatrolAgent::init(int argc, char** argv) {
     goal_reached_wait = 0.0;
 
     if (ID_ROBOT == 0) {
-        string positionstimecsvfilename = to_string(ID_ROBOT) + "_position_log.csv";
+        time_t t;
+        time(&t);
+        string positionstimecsvfilename = ctime(&t);
+        positionstimecsvfilename.append("_position_log.csv");
         positionstimecsvfile = fopen (positionstimecsvfilename.c_str(),"a");
     }
 
@@ -766,7 +770,7 @@ void PatrolAgent::receive_positions()
     if (ID_ROBOT == 0) {
 
         double current_time = ros::Time::now().toSec();
-        if (current_time - last_pos_log > 2.0) {
+        if (current_time - last_pos_log > 0.99) {
 
             last_pos_log = current_time;
 
