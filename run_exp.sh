@@ -16,18 +16,18 @@
 # CUSTOM_STAGE: flag if custom version of Stage is used: true, false
 # SPEEDUP: simulator speedup (if Custom Stage is used)
 
-MAP=DISlabs
-NROBOTS=8
+MAP=example
+NROBOTS=6
 INITPOS=default
-ALG=DTAP
+ALG=CGG
 LOC=AMCL
 NAV=ros
 GWAIT=3
 COMMDELAY=0.2
 TERM=gnome-terminal 
 TIMEOUT=1800
-CUSTOM_STAGE=false
-SPEEDUP=1.0
+CUSTOM_STAGE=true
+SPEEDUP=10.0
 
 ./start_experiment.py $MAP $NROBOTS $INITPOS $ALG $LOC $NAV $GWAIT $COMMDELAY $TERM $TIMEOUT $CUSTOM_STAGE $SPEEDUP
 

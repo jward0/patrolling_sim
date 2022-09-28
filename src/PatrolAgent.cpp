@@ -644,17 +644,17 @@ bool PatrolAgent::check_collision (int robot_id){ //verificar se os robots estao
     double dist_quad;
     
     /* Poderei usar TEAMSIZE para afinar */
-    for (i=0; i<12; i++){ //percorrer vizinhos (assim asseguro q cada interferencia é so encontrada 1 vez)
+    for (i=0; i<TEAMSIZE; i++){ //percorrer vizinhos (assim asseguro q cada interferencia é so encontrada 1 vez)
 
         if (i != robot_id) {
         
             dist_quad = (xPos[i] - xPos[robot_id])*(xPos[i] - xPos[robot_id]) + (yPos[i] - yPos[robot_id])*(yPos[i] - yPos[robot_id]);
             
-            if (dist_quad <= 0.25*0.25){    //robots are ... meter or less apart
-                cancelGoal();
-                ROS_INFO("Robot stopped");
-                return true;
-            }    
+            // if (dist_quad <= 0.25*0.25){    //robots are ... meter or less apart
+            //     cancelGoal();
+            //     ROS_INFO("Robot stopped");
+            //     return true;
+            // }    
         }   
     }
     return false; 
@@ -765,7 +765,7 @@ void PatrolAgent::send_positions()
 
 void PatrolAgent::receive_positions()
 {
-    // Log all robot positions every 2 seconds
+    // Log all robot positions every second
 
     if (ID_ROBOT == 0) {
 
@@ -776,7 +776,7 @@ void PatrolAgent::receive_positions()
 
             fprintf(positionstimecsvfile, "%.1f;",current_time);
 
-            for (uint8_t ndx=0; ndx < 12; ndx++) {
+            for (uint8_t ndx=0; ndx < TEAMSIZE; ndx++) {
                 fprintf(positionstimecsvfile, "%.3f; %.3f;",xPos[ndx],yPos[ndx]);
             } 
             fprintf(positionstimecsvfile, "\n");
