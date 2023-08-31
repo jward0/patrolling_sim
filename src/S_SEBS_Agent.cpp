@@ -50,6 +50,9 @@
 
 using namespace std;
 
+FILE *greedy_counter_log;
+
+
 class S_SEBS_Agent: public PatrolAgent {
 
 private:
@@ -64,6 +67,7 @@ private:
   bool intention;
   uint vertex_intention;
   int robot_intention;  
+  uint decision_log [2] = {0, 0};
       
 public:
     virtual void init(int argc, char** argv);
@@ -129,6 +133,14 @@ void S_SEBS_Agent::init(int argc, char** argv) {
   for (int i=0; i<NUMBER_OF_ROBOTS; i++){
     tab_intention[i] = -1;
   }
+
+  time_t t;
+  time(&t);
+  string greedy_counter = to_string(ID_ROBOT);
+  greedy_counter.append("_");
+  greedy_counter.append(ctime(&t));
+  greedy_counter.append("_greedy_counter.csv");
+  greedy_counter_log = fopen (greedy_counter.c_str(),"a");
   
 }
 
@@ -164,7 +176,10 @@ void S_SEBS_Agent::processEvents() {
 }
 
 int S_SEBS_Agent::compute_next_vertex() {
-    return stochastic_state_exchange_bayesian_strategy(current_vertex, vertex_web, instantaneous_idleness, tab_intention, NUMBER_OF_ROBOTS, G1, G2, edge_min);
+    auto next_vertex = stochastic_state_exchange_bayesian_strategy(decision_log, current_vertex, vertex_web, instantaneous_idleness, tab_intention, NUMBER_OF_ROBOTS, G1, G2, edge_min);
+    fprintf(greedy_counter_log, "%i, %i,\n",decision_log[0],decision_log[1]);
+    fflush(greedy_counter_log);
+    return next_vertex;
 }
 
 

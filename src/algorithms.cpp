@@ -477,12 +477,12 @@ uint state_exchange_bayesian_strategy (uint current_vertex, vertex *vertex_web, 
   } else {
     next_vertex = vertex_web[current_vertex].id_neigh[0]; //only one possibility
   }
-  
+
   return next_vertex;
 
 }
 
-uint stochastic_state_exchange_bayesian_strategy (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int nr_robots, double G1, double G2, double edge_min){
+uint stochastic_state_exchange_bayesian_strategy (uint decision_log[], uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int nr_robots, double G1, double G2, double edge_min){
 
   //number of neighbors of current vertex (number of existing possibilites)
   uint num_neighs = vertex_web[current_vertex].num_neigh;
@@ -499,7 +499,7 @@ uint stochastic_state_exchange_bayesian_strategy (uint current_vertex, vertex *v
     double max_pp= -1;
     double gain, exp_param, edge_weight;
     double log_result = log (1.0/G1);
-    
+
     for (i=0; i<num_neighs; i++){
       neighbors[i] = vertex_web[current_vertex].id_neigh[i];		//neighbors table
      
@@ -537,26 +537,42 @@ uint stochastic_state_exchange_bayesian_strategy (uint current_vertex, vertex *v
 		//printf("Vertex [%d]; PP (without state exchange) = %f\n", vertex_web[current_vertex].id_neigh[i], posterior_probability[i]);
 		// Current gain state scaling: squared
 		double P_gain_state = ( pow(2,nr_robots-count) ) / ( pow(2,nr_robots) - 1.0);	
-		posterior_probability[i] *= pow(P_gain_state, 2);
+		posterior_probability[i] *= P_gain_state;
 		//printf("Vertex [%d]; PP (depois) = %f\n", vertex_web[current_vertex].id_neigh[i], posterior_probability[i]);
-		
+
       }
-  }
 
-  // Instead of choosing greedily, select stochastically from weighted distribution
+	  posterior_probability[i] *= 10;
+	  posterior_probability[i] *= pow(posterior_probability[i], 50);
 
-  discrete_distribution<uint> dist(posterior_probability.begin(), posterior_probability.end());
+  	}
 
-  mt19937 gen(time(0));
+	// Instead of choosing greedily, select stochastically from weighted distribution
 
-  next_vertex = neighbors[dist(gen)];
+	discrete_distribution<uint> dist(posterior_probability.begin(), posterior_probability.end());
+
+	vector<double> p = dist.probabilities();
+
+	mt19937 gen(time(0));
+
+	auto selected_v = dist(gen);
+
+	next_vertex = neighbors[selected_v];
+
+	auto max_v = max_element(posterior_probability.begin(), posterior_probability.end());
+
+	if (fabs(double(*max_v) - posterior_probability[selected_v]) <= __DBL_EPSILON__) {
+		decision_log[0] += 1; // Log "greedy" +1
+	} else {
+		decision_log[1] += 1; // Log "stochastic" +1
+	}
 
   } else {
     next_vertex = vertex_web[current_vertex].id_neigh[0]; //only one possibility
+	decision_log[0] += 1; // Log "greedy" +1
   }
-  
-  return next_vertex;
 
+  return next_vertex;
 }
 
 void dijkstra( uint source, uint destination, int *shortest_path, uint &elem_s_path, vertex *vertex_web, uint dimension){
