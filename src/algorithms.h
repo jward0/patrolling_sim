@@ -64,6 +64,32 @@ typedef struct {
 
 
 //inline long double log2_new(const long double x);
+// ~~~ SPNS STUFF ~~~
+uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const std::vector<std::vector<double>>& node_node_distances, int last_node, int last_last_node, const std::vector<std::vector<double>>& adjacency_matrix);
+
+std::vector<double> forward_nn(std::vector<std::vector<double>> data, std::vector<std::vector<double>> adj);
+
+double leakyrelu(double x, double alpha);
+
+double c0(double x);
+
+double c1(double x);
+
+std::vector<std::vector<double>> sd_1(const std::vector<std::vector<double>>& input);
+
+std::vector<double> sd_out(const std::vector<std::vector<double>>& input);
+
+std::vector<std::vector<std::vector<double>>> nd_1(const std::vector<std::vector<std::vector<double>>>& input);
+
+std::vector<std::vector<double>> nd_out(const std::vector<std::vector<std::vector<double>>>& input);
+
+std::vector<double> intention_mask(const std::vector<double>& priorities, int n_agents, int *targets);
+
+std::vector<double> neighbour_mask(const std::vector<double>& priorities, int n_neighbours, int *neighbours);
+
+int argmax(const std::vector<double>& arr, int size);
+
+// ~~~ END SPNS STUFF ~~~
 
 uint random (uint current_vertex, vertex *vertex_web);
 

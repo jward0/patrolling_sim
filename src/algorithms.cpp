@@ -49,6 +49,7 @@
 uint reward_count = 0;
 
 using namespace std;
+// using std::vector;
 
 
 
@@ -56,6 +57,281 @@ using namespace std;
     return  log(x) * M_LOG2E;
 }*/
 
+
+// ~~~~~~ SPNS ~~~~~~~
+
+uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const vector<vector<double>>& node_node_distances, int last_node, int last_last_node, const vector<vector<double>>& adjacency_matrix){
+  
+  	// Required args so far: instantaneous_idleness, node_node_distances, n_nodes, n_agents, vertex_web, current_vertex, tab_intention, last_node, adjacency_matrix
+  
+  	// ~~~~~ Handle communicated data ~~~~~
+  	// Intention tracking via tab_intention works how I want it to already
+  	// Idleness updating works how I want it to already
+  
+	// ~~~~~ Assemble network inputs ~~~~~
+
+  	// Construct normalised node data vector
+  	
+  	vector<vector<double>> nn_data(n_nodes, vector<double>(2, 0.0));
+
+    double max_idleness = 0.0;
+
+    for (int i=0; i<n_nodes; i++) {
+        if (instantaneous_idleness[i] > max_idleness) {
+            max_idleness = instantaneous_idleness[i];
+        }
+    }
+  	
+  	// double max_idleness = max_element(begin(instantaneous_idleness), end(instantaneous_idleness));
+  	// double max_distance = max_element(begin(node_node_distances[current_vertex]), end(node_node_distances[current_vertex]))
+  	
+  	for (int i=0; i<n_nodes; i++) {
+  		nn_data[i][0] = instantaneous_idleness[i] / max_idleness;
+  		nn_data[i][1] = node_node_distances[current_vertex][i];
+  		// nn_data[i][1] = node_node_distances[current_vertex][i] / max_distance
+  	}
+  	
+  	// ~~~~~ Forward network pass ~~~~~
+  
+	vector<double> priorities(n_nodes, 0.0); 
+	priorities = forward_nn(nn_data, adjacency_matrix); 
+	
+	
+	// ~~~~~ Modify based on last visit ~~~~~
+	if (last_node >= 0) {
+		priorities[last_node] -= 10000;	
+	}
+	if (last_last_node >= 0) {
+		priorities[last_last_node] -= 100;
+	}
+	if (current_vertex >= 0) {
+		priorities[current_vertex] -= 10000;
+	}
+	
+	// ~~~~~ Modify priorities ~~~~~
+	
+	int n_neighbours = vertex_web[current_vertex].num_neigh;
+	int neighbours [n_neighbours];
+	for (int i=0; i<n_neighbours; i++){
+		// ??????
+      	neighbours[i] = vertex_web[current_vertex].id_neigh[i];
+     }
+
+    int next_vertex = 0;
+	
+	if (n_agents == 1) { 
+		// conditional long-range target -> first neighbour step selection for single agent case
+		int long_range_target = argmax(priorities, n_nodes);
+		double min_dist = 99999999;
+		int target = -1;
+		
+		for (int i=0; i<n_neighbours; i++) {
+			double dist_via_node = node_node_distances[current_vertex][neighbours[i]] + node_node_distances[long_range_target][neighbours[i]];
+			if (dist_via_node < min_dist) {
+				min_dist = dist_via_node;
+				next_vertex = i;
+			}
+		}
+	} else {
+		// Modifiy intentions based on communicated values and node neighbours  
+		priorities = intention_mask(priorities, n_agents, tab_intention);
+		priorities = neighbour_mask(priorities, n_neighbours, neighbours);
+	 
+		next_vertex = argmax(priorities, n_nodes);
+  	}
+	return next_vertex;
+
+}
+
+std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double>> adj) {
+
+	vector<vector<double>> unweighted_adj = adj;
+	for (auto& row : unweighted_adj) {
+		for (auto& elem : row) {
+			if (elem != 0.0) {
+				elem = 1.0;
+			}
+		}
+	}
+
+    // Create repeated_data
+    vector<vector<vector<double>>> repeated_data(data.size(), vector<vector<double>>(data.size(), vector<double>(data[0].size())));
+    for (size_t i = 0; i < data.size(); ++i) {
+        for (size_t j = 0; j < data.size(); ++j) {
+            for (size_t k = 0; k < data[0].size(); ++k) {
+                repeated_data[i][j][k] = data[i][k];
+            }
+        }
+    }
+
+    // Create combined_data
+    vector<vector<vector<double>>> combined_data(data.size(), vector<vector<double>>(data.size(), vector<double>(3)));
+    for (size_t i = 0; i < data.size(); ++i) {
+        for (size_t j = 0; j < data.size(); ++j) {
+            combined_data[i][j][0] = repeated_data[i][j][0];
+            combined_data[i][j][1] = repeated_data[i][j][1];
+            combined_data[i][j][2] = adj[i][j];
+        }
+    }	
+	
+
+    // Compute sc
+    vector<double> sc = sd_out(sd_1(data));
+
+    // Compute nc
+    vector<double> nc(data.size(), 0.0);
+    for (size_t i = 0; i < unweighted_adj.size(); ++i) {
+        for (size_t j = 0; j < unweighted_adj[0].size(); ++j) {
+            nc[i] += unweighted_adj[i][j] * nd_out(nd_1(combined_data))[j][i];
+        }
+    }
+
+    // Compute output
+    vector<double> output(data.size(), 0.0);
+    for (size_t i = 0; i < data.size(); ++i) {
+        output[i] = leakyrelu(c0(sc[i]) + c1(nc[i]), 0.3);
+    }
+	
+	return output;
+
+}
+
+double leakyrelu(double x, double alpha) {
+    return x > 0 ? x : alpha * x;
+}
+
+double c0(double x) {
+	return -0.62272069 * x;
+}
+
+double c1(double x) {
+	return -0.04584406 * x;
+}
+
+vector<vector<double>> sd_1(const vector<vector<double>>& input) {
+    vector<vector<double>> out(input.size(), vector<double>(4, 0.0));
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        const auto& d = input[i];
+        out[i][0] =  0.39542921 * d[0] + -0.65675830 * d[1];
+        out[i][1] =  1.04956550 * d[0] + -2.41169670 * d[1];
+        out[i][2] = -1.76400600 * d[0] + -1.35503092 * d[1];
+        out[i][3] =  0.35702324 * d[0] + -0.21459921 * d[1];
+    }
+
+    for (size_t i = 0; i < out.size(); ++i) {
+        for (size_t j = 0; j < out[i].size(); ++j) {
+            out[i][j] = leakyrelu(out[i][j], 0.3);
+        }
+    }
+
+    return out;
+}
+
+vector<double> sd_out(const vector<vector<double>>& input) {
+    vector<double> out(input.size(), 0.0);
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        const auto& d = input[i];
+        out[i] = 1.23378153 * d[0] + -1.74570142 * d[1] + 1.67926374 * d[2] + 1.03526079 * d[3];
+    }
+
+    for (size_t i = 0; i < out.size(); ++i) {
+        out[i] = leakyrelu(out[i], 0.3);
+    }
+
+    return out;
+}
+
+vector<vector<vector<double>>> nd_1(const vector<vector<vector<double>>>& input) {
+    vector<vector<vector<double>>> out(input.size(), vector<vector<double>>(input[0].size(), vector<double>(6, 0.0)));
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        for (size_t j = 0; j < input[i].size(); ++j) {
+            const auto& d = input[i][j];
+            out[i][j][0] =  0.01888764 * d[0] + -0.45915342 * d[1] + -0.47627992 * d[2];
+            out[i][j][1] =  0.37894088 * d[0] +  0.84592537 * d[1] +  0.03730955 * d[2];
+            out[i][j][2] = -0.47623729 * d[0] + -0.48666733 * d[1] +  0.58645635 * d[2];
+            out[i][j][3] = -0.26577757 * d[0] + -0.49801225 * d[1] + -0.00811519 * d[2];
+            out[i][j][4] =  0.57938169 * d[0] +  1.04516341 * d[1] + -0.19110703 * d[2];
+            out[i][j][5] = -0.13873973 * d[0] + -0.50178453 * d[1] + -0.94114514 * d[2];
+        }
+    }
+
+    for (size_t i = 0; i < out.size(); ++i) {
+        for (size_t j = 0; j < out[i].size(); ++j) {
+            for (size_t k = 0; k < out[i][j].size(); ++k) {
+                out[i][j][k] = leakyrelu(out[i][j][k], 0.3);
+            }
+        }
+    }
+
+    return out;
+}
+
+vector<vector<double>> nd_out(const vector<vector<vector<double>>>& input) {
+    vector<vector<double>> out(input.size(), vector<double>(input[0].size(), 0.0));
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        for (size_t j = 0; j < input[i].size(); ++j) {
+            const auto& d = input[i][j];
+            out[i][j] = -1.12949772 * d[0] + 1.03677392 * d[1] + -1.21275977 * d[2] + -0.05812893 * d[3] + -1.04156908 * d[4] + 0.77585069 * d[5];
+        }
+    }
+
+    for (size_t i = 0; i < out.size(); ++i) {
+        for (size_t j = 0; j < out[i].size(); ++j) {
+            out[i][j] = leakyrelu(out[i][j], 0.3);
+        }
+    }
+
+    return out;
+}
+
+vector<double> intention_mask(const vector<double>& priorities, int n_agents, int *targets) {
+
+	vector<double> new_vec = priorities;
+	
+	// Mask out targets of other agents (targets[i] can be less than 0 if that agent has no target currently)
+	for (int i=0; i<n_agents; i++) {
+		if (targets[i] >= 0) {
+			new_vec[targets[i]] -= 999;
+		}
+	}
+	
+	return new_vec;
+}
+
+vector<double> neighbour_mask(const vector<double>& priorities, int n_neighbours, int *neighbours) {
+
+	vector<double> new_vec = priorities;
+
+	// Equivalent to masking out non-neighbours for the purpose of argmaxing
+	for (int i=0; i<n_neighbours; i++) {
+		new_vec[neighbours[i]] += 99999;
+	}
+	
+	return new_vec;
+}
+
+int argmax(const vector<double>& arr, int size) {
+
+	if (size < 1) {
+		return 0;
+	}
+	
+	int ndx = 0;
+	
+	for (int i=1; i<size; i++) {
+		if (arr[i] > arr[ndx]) {
+			ndx = i;
+		} 
+	}
+	
+	return ndx;
+}
+
+// ~~~~ END SPNS ~~~~
 
 uint random (uint current_vertex, vertex *vertex_web){
 
@@ -3669,7 +3945,10 @@ int learning_algorithm(uint current_vertex, vertex *vertex_web, double *instanta
       double prior_denominator = 0.0;
       
       //For Lookahead prior we need:
+	  // DON'T FORGET I CHANGED THIS
       double w_first_layer = 0.75;
+	  // double w_first_layer = 0.5;
+
       double max_idl_scnd_layer [num_possible_neighs];
       double prior_tab [num_possible_neighs];      
       
@@ -3790,6 +4069,7 @@ int learning_algorithm(uint current_vertex, vertex *vertex_web, double *instanta
 	
 	//posterior:
 	posterior_probability[i] = prior * likelihood;
+
 	posterior_sum += posterior_probability[i]; //get normalizing factor
 	
 	RL.node_count[i] = node_count [ neighbors[i] ];
