@@ -81,6 +81,10 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
             max_idleness = instantaneous_idleness[i];
         }
     }
+
+	if (max_idleness == 0) {
+		max_idleness = 1.0;
+	}
   	
   	// double max_idleness = max_element(begin(instantaneous_idleness), end(instantaneous_idleness));
   	// double max_distance = max_element(begin(node_node_distances[current_vertex]), end(node_node_distances[current_vertex]))
@@ -96,8 +100,8 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 	vector<double> priorities(n_nodes, 0.0); 
 	priorities = forward_nn(nn_data, adjacency_matrix); 
 	
-	
 	// ~~~~~ Modify based on last visit ~~~~~
+	/*
 	if (last_node >= 0) {
 		priorities[last_node] -= 10000;	
 	}
@@ -107,6 +111,7 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 	if (current_vertex >= 0) {
 		priorities[current_vertex] -= 10000;
 	}
+	*/
 	
 	// ~~~~~ Modify priorities ~~~~~
 	
@@ -129,7 +134,7 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 			double dist_via_node = node_node_distances[current_vertex][neighbours[i]] + node_node_distances[long_range_target][neighbours[i]];
 			if (dist_via_node < min_dist) {
 				min_dist = dist_via_node;
-				next_vertex = i;
+				next_vertex = neighbours[i];
 			}
 		}
 	} else {
@@ -145,6 +150,8 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 
 std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double>> adj) {
 
+	size_t ds = data.size();
+
 	vector<vector<double>> unweighted_adj = adj;
 	for (auto& row : unweighted_adj) {
 		for (auto& elem : row) {
@@ -155,9 +162,9 @@ std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double
 	}
 
     // Create repeated_data
-    vector<vector<vector<double>>> repeated_data(data.size(), vector<vector<double>>(data.size(), vector<double>(data[0].size())));
-    for (size_t i = 0; i < data.size(); ++i) {
-        for (size_t j = 0; j < data.size(); ++j) {
+    vector<vector<vector<double>>> repeated_data(ds, vector<vector<double>>(ds, vector<double>(data[0].size())));
+    for (size_t i = 0; i < ds; ++i) {
+        for (size_t j = 0; j < ds; ++j) {
             for (size_t k = 0; k < data[0].size(); ++k) {
                 repeated_data[i][j][k] = data[i][k];
             }
@@ -165,33 +172,33 @@ std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double
     }
 
     // Create combined_data
-    vector<vector<vector<double>>> combined_data(data.size(), vector<vector<double>>(data.size(), vector<double>(3)));
-    for (size_t i = 0; i < data.size(); ++i) {
-        for (size_t j = 0; j < data.size(); ++j) {
+    vector<vector<vector<double>>> combined_data(ds, vector<vector<double>>(ds, vector<double>(3)));
+    for (size_t i = 0; i < ds; ++i) {
+        for (size_t j = 0; j < ds; ++j) {
             combined_data[i][j][0] = repeated_data[i][j][0];
             combined_data[i][j][1] = repeated_data[i][j][1];
             combined_data[i][j][2] = adj[i][j];
         }
     }	
-	
 
     // Compute sc
     vector<double> sc = sd_out(sd_1(data));
 
     // Compute nc
-    vector<double> nc(data.size(), 0.0);
+    vector<double> nc(ds, 0.0);
+	vector<vector<double>> nd_out_l = nd_out(nd_1(combined_data));
     for (size_t i = 0; i < unweighted_adj.size(); ++i) {
         for (size_t j = 0; j < unweighted_adj[0].size(); ++j) {
-            nc[i] += unweighted_adj[i][j] * nd_out(nd_1(combined_data))[j][i];
+            nc[i] += unweighted_adj[i][j] * nd_out_l[j][i];
         }
     }
 
     // Compute output
-    vector<double> output(data.size(), 0.0);
-    for (size_t i = 0; i < data.size(); ++i) {
+    vector<double> output(ds, 0.0);
+    for (size_t i = 0; i < ds; ++i) {
         output[i] = leakyrelu(c0(sc[i]) + c1(nc[i]), 0.3);
     }
-	
+
 	return output;
 
 }
@@ -304,11 +311,11 @@ vector<double> intention_mask(const vector<double>& priorities, int n_agents, in
 
 vector<double> neighbour_mask(const vector<double>& priorities, int n_neighbours, int *neighbours) {
 
-	vector<double> new_vec = priorities;
+	vector<double> new_vec(priorities.size(), -99999.0);
 
 	// Equivalent to masking out non-neighbours for the purpose of argmaxing
 	for (int i=0; i<n_neighbours; i++) {
-		new_vec[neighbours[i]] += 99999;
+		new_vec[neighbours[i]] = priorities[neighbours[i]];
 	}
 	
 	return new_vec;
