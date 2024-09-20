@@ -148,6 +148,115 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 
 }
 
+// ~~~~~~ MNS ~~~~~~~
+
+uint minimal_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const vector<vector<double>>& node_node_distances, int last_node, int last_last_node, const vector<vector<double>>& adjacency_matrix){
+  
+  	// Required args so far: instantaneous_idleness, node_node_distances, n_nodes, n_agents, vertex_web, current_vertex, tab_intention, last_node, adjacency_matrix
+  
+  	// ~~~~~ Handle communicated data ~~~~~
+  	// Intention tracking via tab_intention works how I want it to already
+  	// Idleness updating works how I want it to already
+  
+	// ~~~~~ Assemble network inputs ~~~~~
+
+  	// Construct normalised node data vector
+  	
+  	vector<vector<double>> nn_data(n_nodes, vector<double>(2, 0.0));
+
+    double max_idleness = 0.0;
+
+    for (int i=0; i<n_nodes; i++) {
+        if (instantaneous_idleness[i] > max_idleness) {
+            max_idleness = instantaneous_idleness[i];
+        }
+    }
+
+	if (max_idleness == 0) {
+		max_idleness = 1.0;
+	}
+  	
+  	// double max_idleness = max_element(begin(instantaneous_idleness), end(instantaneous_idleness));
+  	// double max_distance = max_element(begin(node_node_distances[current_vertex]), end(node_node_distances[current_vertex]))
+  	
+  	for (int i=0; i<n_nodes; i++) {
+  		nn_data[i][0] = instantaneous_idleness[i] / max_idleness;
+  		nn_data[i][1] = node_node_distances[current_vertex][i];
+  		// nn_data[i][1] = node_node_distances[current_vertex][i] / max_distance
+  	}
+  	
+  	// ~~~~~ Forward network pass ~~~~~
+  
+	vector<double> priorities(n_nodes, 0.0); 
+	priorities = minimal_nn(nn_data); 
+	
+	// ~~~~~ Modify based on last visit ~~~~~
+	/*
+	if (last_node >= 0) {
+		priorities[last_node] -= 10000;	
+	}
+	if (last_last_node >= 0) {
+		priorities[last_last_node] -= 100;
+	}
+	if (current_vertex >= 0) {
+		priorities[current_vertex] -= 10000;
+	}
+	*/
+	
+	// ~~~~~ Modify priorities ~~~~~
+	
+	int n_neighbours = vertex_web[current_vertex].num_neigh;
+	int neighbours [n_neighbours];
+	for (int i=0; i<n_neighbours; i++){
+		// ??????
+      	neighbours[i] = vertex_web[current_vertex].id_neigh[i];
+     }
+
+    int next_vertex = 0;
+	
+	if (n_agents == 1) { 
+		// conditional long-range target -> first neighbour step selection for single agent case
+		int long_range_target = argmax(priorities, n_nodes);
+		double min_dist = 99999999;
+		int target = -1;
+		
+		for (int i=0; i<n_neighbours; i++) {
+			double dist_via_node = node_node_distances[current_vertex][neighbours[i]] + node_node_distances[long_range_target][neighbours[i]];
+			if (dist_via_node < min_dist) {
+				min_dist = dist_via_node;
+				next_vertex = neighbours[i];
+			}
+		}
+	} else {
+		// Modifiy intentions based on communicated values and node neighbours  
+		priorities = intention_mask(priorities, n_agents, tab_intention);
+		priorities = neighbour_mask(priorities, n_neighbours, neighbours);
+	 
+		next_vertex = argmax(priorities, n_nodes);
+  	}
+	return next_vertex;
+
+}
+
+std::vector<double> minimal_nn(vector<vector<double>> data) {
+
+        vector<double> out(data.size(), 0.0);
+
+        for (size_t i = 0; i < data.size(); ++i) {
+
+                double id = data[i][0];
+                double dis = data[i][1];
+
+                double n0 = leakyrelu( 0.41935197 * id - 1.036573603 * dis, -0.21384633);
+                double n1 = leakyrelu( 1.02416510 * id - 0.262816527 * dis,  2.57125805);
+                double n2 = leakyrelu(-0.43140551 * id - 0.027082452 * dis,  0.48526923);
+
+                out[i] = n0 + n1 + n2;
+        }
+
+        return out;
+}
+
 std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double>> adj) {
 
 	size_t ds = data.size();

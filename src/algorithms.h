@@ -64,8 +64,11 @@ typedef struct {
 
 
 //inline long double log2_new(const long double x);
-// ~~~ SPNS STUFF ~~~
+// ~~~ SPNS/MNS STUFF ~~~
 uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const std::vector<std::vector<double>>& node_node_distances, int last_node, int last_last_node, const std::vector<std::vector<double>>& adjacency_matrix);
+
+uint minimal_network_strategy(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const std::vector<std::vector<double>>& node_node_distances, int last_node, int last_last_node);
+
 
 std::vector<double> forward_nn(std::vector<std::vector<double>> data, std::vector<std::vector<double>> adj);
 
