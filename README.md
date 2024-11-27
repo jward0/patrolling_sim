@@ -1,4 +1,15 @@
 =================================
+Nov. 2024 (jward0 fork)
+=================================
+
+Added SPNS/SUNS and MNS.
+
+Other differences from base patrolsim:
+
+* Robot positions are logged every second
+* Agent stall behaviours are slightly adjusted
+
+=================================
 patrolling_sim v2.2.4 (Jan. 2022)
 =================================
 
