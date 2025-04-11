@@ -35,12 +35,17 @@
 * Author: David Portugal (2011-2014)
 *********************************************************************/
 
+#include <algorithm>
 #include <ctime>
 #include <climits>
 #include <cmath>
 #include <random>
 #include <ros/ros.h>
 #include <vector>
+#include <tuple>
+#include <queue>
+#include <unordered_map>
+#include <functional>
 
 #include "getgraph.h"
 #include "algorithms.h"
@@ -56,6 +61,291 @@ using namespace std;
 /*inline long double log2_new(const long double x){
     return  log(x) * M_LOG2E;
 }*/
+
+// ~~~ RHAUM ~~~
+
+// ~~~~~~ RH-ARM ~~~~~~~
+
+// Alias for readability
+using PathEntry = tuple<int, double>; // (node, time)
+using Path = vector<PathEntry>;
+
+
+Path rh_arm(double time, uint current_vertex, double horizon_length, double *instantaneous_idleness, const vector<vector<double>>& adj, const vector<vector<double>>& node_node_distances, Path self_path, const vector<Path>& other_paths) {
+
+	int n_nodes = adj.size();
+
+	vector<vector<double>> projected_node_visit_times(n_nodes);
+
+    // Collect projected visit times from announced paths
+    for (const auto& path : other_paths) {
+        for (const auto& visit : path) {
+            int node = std::get<0>(visit);
+            double time = std::get<1>(visit);
+            projected_node_visit_times[node].push_back(time);
+        }
+    }
+
+    // Sort visits for each node
+    for (auto& visits : projected_node_visit_times) {
+        std::sort(visits.begin(), visits.end());
+    }
+
+    // Remove outdated visit times
+    for (auto& visits : projected_node_visit_times) {
+        visits.erase(std::remove_if(
+            visits.begin(), visits.end(),
+            [time](double t) { return t < time; }
+        ), visits.end());
+    }
+	
+	// Plan next action
+	auto [best_path, reward] = best_path_astar(current_vertex, time, horizon_length, instantaneous_idleness, adj, node_node_distances, projected_node_visit_times);
+		
+	cout << reward << "\n";
+	return best_path;
+}
+
+// Entry in the A* queue
+struct AStarNode {
+    Path path;
+    double reward;
+
+    // Needed for the priority queue to order by decreasing (real + heuristic reward)
+    bool operator<(const AStarNode& other) const {
+        return reward < other.reward; // reversed priority in pq
+    }
+};
+
+pair<Path, double> best_path_astar(int start, double start_time, double horizon_length, double *idlenesses, const vector<vector<double>>& adj, const vector<vector<double>>& node_node_distances, const vector<vector<double>>& projected_node_visit_times) {
+
+    double end_time = start_time + horizon_length;
+    int n_nodes = adj.size();
+
+    // for (auto& row : adj) {
+    //     for (double& val : row) {
+    //         val = std::ceil(val);
+    //     }
+    // }
+
+    // Priority queue with max-heap: larger reward gets higher priority
+    using QueueEntry = pair<double, AStarNode>; // (priority, node)
+    auto cmp = [](const QueueEntry& a, const QueueEntry& b) {
+        return a.first < b.first; // max-heap (priority = -reward)
+    };
+    priority_queue<QueueEntry, vector<QueueEntry>, decltype(cmp)> open_set(cmp);
+
+    Path best_path;
+    double best_path_reward = 0.0;
+
+    AStarNode start_node;
+    start_node.path = { make_tuple(start, start_time) };
+    start_node.reward = 0.0;
+    open_set.emplace(0.0, start_node);
+
+    while (!open_set.empty()) {
+        auto [priority, current] = open_set.top();
+        open_set.pop();
+
+        int at_node = get<0>(current.path.back());
+        double t = get<1>(current.path.back());
+        double r = current.reward;
+
+        // Find neighbors that can be reached in time
+        std::vector<int> neighbors;
+        for (int i = 0; i < n_nodes; ++i) {
+            if (adj[at_node][i] != 0.0 && t + adj[at_node][i] <= end_time) {
+                neighbors.push_back(i);
+            }
+        }
+
+        // Termination: no further reachable neighbors
+        if (neighbors.empty()) {
+            return { current.path, current.reward };
+        }
+
+        for (int target : neighbors) {
+            double w = adj[at_node][target];
+            double visit_t = t + w;
+
+            // Extract self-visits to this target node
+            vector<double> self_visits;
+            for (const auto& [node, time] : current.path) {
+                if (node == target) {
+                    self_visits.push_back(time);
+                }
+            }
+
+            double real_reward = r + step_reward(
+                start_time, end_time, t, idlenesses[target], w,
+                self_visits, projected_node_visit_times[target]
+            );
+
+            double heuristic_reward = astar_heuristic(
+                target, start_time, end_time, visit_t,
+                idlenesses, adj, node_node_distances
+            );
+
+            Path new_path = current.path;
+            new_path.emplace_back(target, visit_t);
+
+            AStarNode next_node = { new_path, real_reward };
+            double total_priority = -(real_reward + heuristic_reward); // A* priority
+            open_set.emplace(total_priority, next_node);
+        }
+    }
+
+    // Shouldn't reach here if the map is connected, but return empty as fallback
+    return { best_path, best_path_reward };
+}
+
+
+
+double astar_discount(double start_time, double arrival_time, double end_time) {
+
+    return pow(0.95, arrival_time - start_time);
+}
+
+double step_reward(
+    double start_time,
+    double end_time,
+    double current_time,
+    double idleness,
+    double weight,
+    const vector<double>& self_visits,
+    const vector<double>& other_visits
+) {
+    double remaining_horizon = end_time - (current_time + weight);
+    double horizon = end_time - start_time;
+
+    double alpha = current_time - idleness;
+    double arrival_time = current_time + weight;
+
+    vector<double> visits = self_visits;
+    visits.insert(visits.end(), other_visits.begin(), other_visits.end());
+    sort(visits.begin(), visits.end());
+
+    for (double visit : visits) {
+        if (visit <= arrival_time && visit > alpha) {
+            alpha = visit;
+        }
+    }
+
+    double raw_reward = (arrival_time - alpha) * remaining_horizon;
+    double discount_factor = astar_discount(start_time, arrival_time, end_time);
+
+    return raw_reward * discount_factor;
+}
+
+
+double astar_heuristic(
+    int start_node,
+    double start_time,
+    double end_time,
+    double current_time,
+    double* idlenesses, // Easier to use raw array here than mess with agent type to turn it into a vector
+    const vector<vector<double>>& adj,
+    const vector<vector<double>>& node_node_distances
+) {
+    double remaining_horizon = end_time - current_time;
+    double horizon = end_time - start_time;
+
+    double discount_window = 0.0;
+    for (double ts = current_time; ts <= end_time; ts += 1.0) {
+        discount_window += astar_discount(start_time, ts, end_time);
+    }
+
+    int n = adj.size();
+    vector<int> reachable_nodes;
+
+    for (int i = 0; i < n; ++i) {
+        if (node_node_distances[start_node][i] <= horizon) {
+            reachable_nodes.push_back(i);
+        }
+    }
+    reachable_nodes.push_back(start_node);
+
+    std::vector<double> edge_rewards_per_second = {0.0};
+
+    for (size_t a = 0; a < reachable_nodes.size(); ++a) {
+        for (size_t b = 0; b <= a; ++b) {
+            int i = reachable_nodes[a];
+            int j = reachable_nodes[b];
+
+            if (adj[i][j] != 0.0) {
+                double reward_per_second = 
+                    (max(idlenesses[i], idlenesses[j]) + adj[i][j]) *
+                    (remaining_horizon - adj[i][j]) / adj[i][j];
+
+                edge_rewards_per_second.push_back(reward_per_second);
+            }
+        }
+    }
+
+    return discount_window * *max_element(edge_rewards_per_second.begin(), edge_rewards_per_second.end());
+}
+
+// ~~~ ER ~~~
+
+uint expected_reactive (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, double *estimate_last_visits, double edge_avg, double current_time) {
+
+  //number of neighbors of current vertex (number of existing possibilites)
+  uint num_neighs = vertex_web[current_vertex].num_neigh;
+  uint next_vertex;
+  
+  if (num_neighs > 1){
+    
+    double decision_table [num_neighs];
+    uint neighbors [num_neighs];
+    uint possibilities[num_neighs];
+     
+    uint i, hits=0;
+
+    double max_utility = -1;
+    double delta_time, estimate_time;
+    
+    for (i=0; i<num_neighs; i++){
+      neighbors[i] = vertex_web[current_vertex].id_neigh[i];		//neighbors table
+
+	  double weight = pow(pow((vertex_web[current_vertex].x - vertex_web[neighbors[i]].x), 2) + pow((vertex_web[current_vertex].y - vertex_web[neighbors[i]].y), 2), 0.5);
+
+     
+      delta_time = weight;
+
+      // if (delta_time<edge_avg) {delta_time = edge_avg;}
+
+	  estimate_time = current_time + delta_time;
+
+	  decision_table[i] = fabs(estimate_time - estimate_last_visits[neighbors[i]]);
+      
+      if (decision_table[i] > max_utility) {
+		  max_utility = decision_table[i];
+		  hits = 0;
+		  possibilities[hits] = neighbors[i];
+	  } else if (decision_table[i] == max_utility) {
+		  hits++;
+		  possibilities[hits] = neighbors[i];
+	  }
+	}
+
+    if(hits>0){	//more than one possibility (choose at random)
+      srand ( time(NULL) );
+      i = rand() % (hits+1) + 0; 	//0, ... ,hits
+	
+      //printf("rand integer = %d\n", i);
+      next_vertex = possibilities [i];		// random vertex with higher idleness
+      	
+      } else {
+		next_vertex = possibilities[hits];	//vertex with higher idleness
+      }
+    
+  } else {
+    next_vertex = vertex_web[current_vertex].id_neigh[0]; //only one possibility
+  }
+
+  return next_vertex;
+
+}
 
 
 // ~~~~~~ SPNS ~~~~~~~
@@ -99,6 +389,11 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
   
 	vector<double> priorities(n_nodes, 0.0); 
 	priorities = forward_nn(nn_data, adjacency_matrix); 
+
+	// CURRENTLY MINIMAL PATROL IS SUBBED IN
+
+	// vector<double> priorities(n_nodes, 0.0);
+	// priorities = minimal_nn(nn_data);
 	
 	// ~~~~~ Modify based on last visit ~~~~~
 	/*
@@ -150,7 +445,7 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 
 // ~~~~~~ MNS ~~~~~~~
 
-uint minimal_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const vector<vector<double>>& node_node_distances, int last_node, int last_last_node, const vector<vector<double>>& adjacency_matrix){
+uint minimal_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const vector<vector<double>>& node_node_distances, int last_node, int last_last_node){
   
   	// Required args so far: instantaneous_idleness, node_node_distances, n_nodes, n_agents, vertex_web, current_vertex, tab_intention, last_node, adjacency_matrix
   
@@ -781,6 +1076,8 @@ int count_intention_cbls (uint vertex, int *tab_intention, int nr_robots, int id
   }
   return count;  
 }
+
+
 
 uint state_exchange_bayesian_strategy (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int nr_robots, double G1, double G2, double edge_min){
 

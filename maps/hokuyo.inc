@@ -1,7 +1,7 @@
 define hokuyo ranger
 (
   sensor(           
-    range [ 0.0  20.0 ]
+    range [ 0.0  6.0 ]
     fov 270.25
     samples 1081
   )

@@ -29,11 +29,14 @@ Alg_names = [
         [ 'SBS',  'SBS' ],
         [ 'SEBS', 'SEBS' ],
         [ 'S_SEBS', 'S_SEBS'],
+        [ 'R_SEBS', 'R_SEBS'],
+        [ 'ER',   'ER'],
         [ 'CBLS', 'CBLS' ],
         [ 'DTAG', 'DTAGreedy' ],
         [ 'DTAP', 'DTASSIPart' ],
         [ 'SPNS', 'SPNS' ],
-        [ 'MNS', 'MNS' ]
+        [ 'MNS', 'MNS' ],
+        [ 'RHARM', 'RHARM' ]
      ]
 
 Map_names = ['cumberland','example','grid','1r5','broughton','DIAG_labs','DIAG_floor1']   
@@ -206,7 +209,7 @@ def run_experiment(MAP, NROBOTS, INITPOS, ALG_SHORT, LOC_MODE, NAV_MODULE, GWAIT
         print("Run patrol robot ",i)
         if (ALG_SHORT=='MSP'):
             cmd = 'bash -c \'rosrun patrolling_sim '+ALG+' __name:=patrol_robot'+str(i)+' '+MAP+' '+str(i)+' MSP/'+MAP+'/'+MAP+'_'+str(NROBOTS)+'_'+str(i)+' '+'\''
-        elif (ALG_SHORT=='GBS' or ALG_SHORT=='SBS' or ALG_SHORT=='SEBS' or ALG_SHORT=='S_SEBS' or ALG_SHORT=='CBLS' or ALG_SHORT=='SPNS' or ALG_SHORT=='MNS'):
+        elif (ALG_SHORT=='GBS' or ALG_SHORT=='SBS' or ALG_SHORT=='SEBS' or ALG_SHORT=='S_SEBS' or ALG_SHORT=='CBLS' or ALG_SHORT == 'ER' or ALG_SHORT=='SPNS' or ALG_SHORT=='MNS' or ALG_SHORT=='RHARM'):
             cmd = 'bash -c \'rosrun patrolling_sim '+ALG+' __name:=patrol_robot'+str(i)+' '+MAP+' '+str(i)+' '+str(NROBOTS)+'\''
         else:
             now = datetime.datetime.now()
