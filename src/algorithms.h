@@ -69,6 +69,8 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
 
 std::vector<double> forward_nn(std::vector<std::vector<double>> data, std::vector<std::vector<double>> adj);
 
+std::vector<double> minimal_nn(std::vector<std::vector<double>> data);
+
 double leakyrelu(double x, double alpha);
 
 double c0(double x);
@@ -90,6 +92,12 @@ std::vector<double> neighbour_mask(const std::vector<double>& priorities, int n_
 int argmax(const std::vector<double>& arr, int size);
 
 // ~~~ END SPNS STUFF ~~~
+
+// ~~~ ER STUFF ~~~
+
+uint expected_reactive (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, double *estimate_last_visits, double edge_avg, double current_time);
+
+// ~~~ END ER STUFF ~~~
 
 uint random (uint current_vertex, vertex *vertex_web);
 

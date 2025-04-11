@@ -138,6 +138,7 @@ void CBLS_Agent::init(int argc, char** argv) {
       node_count[i]= 1;
     }
   }
+
   
   decision_number = 0;  
   
@@ -155,21 +156,29 @@ void CBLS_Agent::onGoalComplete() {
 			if (i == next_vertex){
 				last_visit[i] = now;
 				node_count[i]++;
-				avg_idleness[i] = ( avg_idleness[i] * (double) (node_count [i] - 1) + instantaneous_idleness [i] ) / ( (double) node_count [i] );		  		    
-			}	
+				// avg_idleness[i] = ( avg_idleness[i] * (double) (node_count [i] - 1) + instantaneous_idleness [i] ) / ( (double) node_count [i] );	
+        avg_idleness[i] = (avg_idleness[i] * (double)(node_count[i] - 1) + 0.5 * pow(instantaneous_idleness[i], 2)) / (2*avg_idleness[i] * (double)(node_count[i] - 1) + instantaneous_idleness[i]);
+        if (isnan(avg_idleness[i])) {
+          avg_idleness[i] = 0;
+        }
+      }	
 			instantaneous_idleness[i]= now - last_visit[i];  //ou seja: Zero para o next_vertex			
-			//ROS_INFO("inst_idleness[%d] = %f", i, instantaneous_idleness[i]);
 			
 			//Update Curr Avg Idleness Table:
-			cur_avg_idleness [i] = ( avg_idleness [i] * (double) (node_count [i]) + instantaneous_idleness [i] ) / ( (double) node_count [i] + 1 );
-		}
+			// cur_avg_idleness [i] = ( avg_idleness [i] * (double) (node_count [i]) + instantaneous_idleness [i] ) / ( (double) node_count [i] + 1 );
+
+		  cur_avg_idleness[i] = (avg_idleness[i] * (double)(node_count[i]) + 0.5 * pow(instantaneous_idleness[i], 2)) / (2*avg_idleness[i] * (double)(node_count[i]) + instantaneous_idleness[i]);
+      if (isnan(cur_avg_idleness[i])) {
+        cur_avg_idleness[i] = 0;
+      }
+    }
 		
 		/** PUNISH & REWARD -- NOW **/
                 int value = ID_ROBOT;
                 if (value==-1){value=0;}
                 
 		update_likelihood_new(RL, node_count, instantaneous_idleness, dimension, real_histogram, source, destination, hist_dimension, vertex_web, value);
-		normalize_histogram(real_histogram, histogram, hist_dimension);	
+    normalize_histogram(real_histogram, histogram, hist_dimension);	
 		  
 		/*if(decision_number%50 == 0){ //write histogram each 50 iterations 
 		  write_histogram_to_file (vertex_web, real_histogram, histogram, source, destination, hist_dimension,decision_number,value);
@@ -228,12 +237,22 @@ void CBLS_Agent::processEvents() {
                 //actualizar last_visit[dimension]
                 last_visit[vertex_arrived] = now;   
 			  node_count[vertex_arrived]++;
-			  avg_idleness[i] = ( avg_idleness[i] * (double) (node_count [i] - 1) + instantaneous_idleness [i] ) / ( (double) node_count [i] );		
+			  // avg_idleness[i] = ( avg_idleness[i] * (double) (node_count [i] - 1) + instantaneous_idleness [i] ) / ( (double) node_count [i] );	
+            avg_idleness[i] = (avg_idleness[i] * (double)(node_count[i] - 1) + 0.5 * pow(instantaneous_idleness[i], 2)) / (2*avg_idleness[i] * (double)(node_count[i] - 1) + instantaneous_idleness[i]);
+            if (isnan(avg_idleness[i])) {
+              avg_idleness[i] = 0;
+            }
+
             }           
             //actualizar instantaneous_idleness[dimension]
             instantaneous_idleness[i] = now - last_visit[i];      
-	    cur_avg_idleness [i] = ( avg_idleness [i] * (double) (node_count [i]) + instantaneous_idleness [i] ) / ( (double) node_count [i] + 1 );		  	  		  	    
-	    //ROS_INFO("idleness[%d] = %f", i, instantaneous_idleness[i]);
+	    // cur_avg_idleness [i] = ( avg_idleness [i] * (double) (node_count [i]) + instantaneous_idleness [i] ) / ( (double) node_count [i] + 1 );
+        // ROS_INFO(to_string(i) + " " + to_string(avg_idleness[i]) + " " + to_string(node_count[i]) + " " + to_string(instantaneous_idleness[i]));	   	  		  	    
+
+		  cur_avg_idleness[i] = (avg_idleness[i] * (double)(node_count[i]) + 0.5 * pow(instantaneous_idleness[i], 2)) / (2*avg_idleness[i] * (double)(node_count[i]) + instantaneous_idleness[i]);
+      if (isnan(cur_avg_idleness[i])) {
+        cur_avg_idleness[i] = 0;
+      }
         }     
         
         arrived = false;

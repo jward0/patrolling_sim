@@ -58,6 +58,67 @@ using namespace std;
 }*/
 
 
+uint expected_reactive (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, double *estimate_last_visits, double edge_avg, double current_time) {
+
+  //number of neighbors of current vertex (number of existing possibilites)
+  uint num_neighs = vertex_web[current_vertex].num_neigh;
+  uint next_vertex;
+  
+  if (num_neighs > 1){
+    
+    double decision_table [num_neighs];
+    uint neighbors [num_neighs];
+    uint possibilities[num_neighs];
+     
+    uint i, hits=0;
+
+    double max_utility = -1;
+    double delta_time, estimate_time;
+    
+    for (i=0; i<num_neighs; i++){
+      neighbors[i] = vertex_web[current_vertex].id_neigh[i];		//neighbors table
+
+	  double weight = pow(pow((vertex_web[current_vertex].x - vertex_web[neighbors[i]].x), 2) + pow((vertex_web[current_vertex].y - vertex_web[neighbors[i]].y), 2), 0.5);
+
+     
+      delta_time = weight;
+
+      // if (delta_time<edge_avg) {delta_time = edge_avg;}
+
+	  estimate_time = current_time + delta_time;
+
+	  decision_table[i] = fabs(estimate_time - estimate_last_visits[neighbors[i]]);
+      
+      if (decision_table[i] > max_utility) {
+		  max_utility = decision_table[i];
+		  hits = 0;
+		  possibilities[hits] = neighbors[i];
+	  } else if (decision_table[i] == max_utility) {
+		  hits++;
+		  possibilities[hits] = neighbors[i];
+	  }
+	}
+
+    if(hits>0){	//more than one possibility (choose at random)
+      srand ( time(NULL) );
+      i = rand() % (hits+1) + 0; 	//0, ... ,hits
+	
+      //printf("rand integer = %d\n", i);
+      next_vertex = possibilities [i];		// random vertex with higher idleness
+      	
+      } else {
+		next_vertex = possibilities[hits];	//vertex with higher idleness
+      }
+    
+  } else {
+    next_vertex = vertex_web[current_vertex].id_neigh[0]; //only one possibility
+  }
+
+  return next_vertex;
+
+}
+
+
 // ~~~~~~ SPNS ~~~~~~~
 
 uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const vector<vector<double>>& node_node_distances, int last_node, int last_last_node, const vector<vector<double>>& adjacency_matrix){
@@ -99,6 +160,11 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
   
 	vector<double> priorities(n_nodes, 0.0); 
 	priorities = forward_nn(nn_data, adjacency_matrix); 
+
+	// CURRENTLY MINIMAL PATROL IS SUBBED IN
+
+	// vector<double> priorities(n_nodes, 0.0);
+	// priorities = minimal_nn(nn_data);
 	
 	// ~~~~~ Modify based on last visit ~~~~~
 	/*
@@ -146,6 +212,25 @@ uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *i
   	}
 	return next_vertex;
 
+}
+
+std::vector<double> minimal_nn(vector<vector<double>> data) {
+
+	vector<double> out(data.size(), 0.0);
+
+	for (size_t i = 0; i < data.size(); ++i) {
+
+		double id = data[i][0];
+		double dis = data[i][1];
+
+		double n0 = leakyrelu( 0.41935197 * id - 1.036573603 * dis, -0.21384633);
+		double n1 = leakyrelu( 1.02416510 * id - 0.262816527 * dis,  2.57125805);
+		double n2 = leakyrelu(-0.43140551 * id - 0.027082452 * dis,  0.48526923);
+
+		out[i] = n0 + n1 + n2;
+	}
+
+	return out;
 }
 
 std::vector<double> forward_nn(vector<vector<double>> data, vector<vector<double>> adj) {
@@ -672,6 +757,8 @@ int count_intention_cbls (uint vertex, int *tab_intention, int nr_robots, int id
   }
   return count;  
 }
+
+
 
 uint state_exchange_bayesian_strategy (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int nr_robots, double G1, double G2, double edge_min){
 
