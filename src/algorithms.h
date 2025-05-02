@@ -63,9 +63,47 @@ typedef struct {
 }reinforcement_learning;
 
 
+// ~~~ CR-A STUFF ~~~
+
+uint conscientious_reactive_avoidant(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents);
+
+// ~~~ RH-ARM STUFF ~~~
+
+using PathEntry = std::tuple<int, double>; // (node, time)
+using Path = std::vector<PathEntry>;
+
+Path rh_arm(double time, uint current_vertex, double horizon_length, double *instantaneous_idleness, const std::vector<std::vector<double>>& adj, const std::vector<std::vector<double>>& node_node_distances, Path self_path, const std::vector<Path>& other_paths);
+
+std::pair<Path, double> best_path_astar(int start_node, double start_time, double horizon_length, double *idlenesses, const std::vector<std::vector<double>>& adj, const std::vector<std::vector<double>>& node_node_distances, const std::vector<std::vector<double>>& projected_node_visit_times);
+
+double astar_discount(double start_time, double arrival_time, double end_time);
+
+double step_reward(
+    double start_time,
+    double end_time,
+    double current_time,
+    double idleness,
+    double weight,
+    const std::vector<double>& self_visits,
+    const std::vector<double>& other_visits
+);
+
+double astar_heuristic(
+    int start_node,
+    double start_time,
+    double end_time,
+    double current_time,
+    double* idlenesses,
+    const std::vector<std::vector<double>>& adj,
+    const std::vector<std::vector<double>>& node_node_distances
+);
+
 //inline long double log2_new(const long double x);
-// ~~~ SPNS STUFF ~~~
+// ~~~ SPNS/MNS STUFF ~~~
 uint spatial_priority_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const std::vector<std::vector<double>>& node_node_distances, int last_node, int last_last_node, const std::vector<std::vector<double>>& adjacency_matrix);
+
+uint minimal_network(uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents, int n_nodes, const std::vector<std::vector<double>>& node_node_distances, int last_node, int last_last_node);
+
 
 std::vector<double> forward_nn(std::vector<std::vector<double>> data, std::vector<std::vector<double>> adj);
 

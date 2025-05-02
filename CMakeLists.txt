@@ -171,10 +171,21 @@ add_executable(SPNS src/SPNS_Agent.cpp)
 target_link_libraries(SPNS PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
+add_executable(MNS src/MNS_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(MNS PatrolAgent ${catkin_LIBRARIES})
+
 add_executable(ER src/ER_Agent.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(ER PatrolAgent ${catkin_LIBRARIES})
 
+add_executable(RHARM src/RHARM_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(RHARM PatrolAgent ${catkin_LIBRARIES})
+
+add_executable(CRA src/CRA_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(CRA PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
 add_executable(CBLS src/CBLS_Agent.cpp)
