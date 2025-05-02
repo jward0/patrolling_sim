@@ -55,3 +55,5 @@
 #define DTASSI_TR 41 //Task request, msg format: [ID_ROBOT,msg_type,next_vertex_index,bid_value]
 #define DTASSI_BID 42 //Bid Message, msg format: [ID_ROBOT,msg_type,next_vertex_index,bid_value]
 
+// Message types for RH-ARM algorithm
+#define RHARM_MSG_TYPE 50 // msg format: [ID_ROBOT, msg_type, current_vertex, intended_path[(node 0, time 0)...(node n, time n)]]

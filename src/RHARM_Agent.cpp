@@ -66,12 +66,12 @@ void RHARM_Agent::init(int argc, char** argv) {
   			adjacency_matrix[i][vertex_web[i].id_neigh[j]] = vertex_web[i].cost[j] * RESOLUTION;
   		}
   	}
-    // for (int i = 0; i < dimension; i++) {
-    //     for (int j = 0; j < dimension; j++) {
-    //         cout << adjacency_matrix[i][j] << ' ';
-    //     }
-    //     cout << "\n";
-    // }
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            cout << adjacency_matrix[i][j] << ' ';
+        }
+        cout << "\n";
+    }
 
   	// ~~~~ Floyd-Warshall to generate all node-to-node distances ~~~~
   	
@@ -104,7 +104,7 @@ void RHARM_Agent::init(int argc, char** argv) {
     arrived = false;
     horizon_length = 40.0;
   	// Initialise received intentions:
-	received_path_intentions.reserve(n_agents);
+	received_path_intentions.resize(n_agents);
 }
 
 // Executed at any cycle when goal is not reached
@@ -128,6 +128,9 @@ void RHARM_Agent::processEvents() {
 }
 
 int RHARM_Agent::compute_next_vertex() {
+
+    // return 0;
+
     // for(int i=0; i<dimension; i++){
     //     cout << instantaneous_idleness[i] << ' ';
     // }
@@ -173,7 +176,7 @@ void RHARM_Agent::send_results() {
 void RHARM_Agent::receive_results() {
   
     // [ID_ROBOT, msg_type, current_vertex, intended_path[(node 0, time 0)...(node n, time n)]]
-  
+      
     robot_arrived = vresults[0];
     
     int self_id = ID_ROBOT;
@@ -185,13 +188,15 @@ void RHARM_Agent::receive_results() {
     vertex_arrived = vresults[2];
     // Re-ravel path intentions
     Path path;
-    for (size_t i = 3; i + 1 < vresults.size(); i+= 2) {
+    for (size_t i = 3; i+1 < vresults.size(); i+= 2) {
         int node = vresults[i];
         double time = static_cast<double>(vresults[i+1]) / 10.0;
         path.emplace_back(node, time);
     }
+
     received_path_intentions[robot_arrived] = path;
     arrived = true;
+    
 
     //message_received = true;
 }

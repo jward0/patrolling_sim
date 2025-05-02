@@ -62,7 +62,54 @@ using namespace std;
     return  log(x) * M_LOG2E;
 }*/
 
-// ~~~ RHAUM ~~~
+// ~~~ CR_A ~~~
+
+uint conscientious_reactive_avoidant (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, int *tab_intention, int n_agents){
+
+	int n_neighbours = vertex_web[current_vertex].num_neigh;
+
+	// Only one neighbour, skip the rest
+	if (n_neighbours == 1) {
+		return vertex_web[current_vertex].id_neigh[0];
+	}
+
+	int neighbours [n_neighbours];
+	double neighbour_idlenesses [n_neighbours];
+	for (int i=0; i<n_neighbours; i++){
+		  neighbours[i] = vertex_web[current_vertex].id_neigh[i];
+		  neighbour_idlenesses[i] = instantaneous_idleness[neighbours[i]];
+	}
+
+	// Mask nodes that other agents are targeting by setting their idleness to -1.0 (smaller than any actual idleness can be)
+	for (int i=0; i<n_agents; i++) {
+		if (tab_intention[i] > 0) {
+			for (int j=0; j<n_neighbours; j++) {
+				if (neighbours[j] == tab_intention[i]) {
+					neighbour_idlenesses[j] = -1.0;
+				}
+			}
+		}
+	}
+
+	// Randomise ties by adding small amount of noise to neighbour idlenesses
+	// Yes, I know this is bad practice for RNG in C++. It doesn't matter here.
+	for (int i=0; i<n_neighbours; i++) {
+		neighbour_idlenesses[i] += (rand() % 100) / 10000;
+	}
+
+	// My kingdom for an argmin()
+	uint target;
+	double largest_i = -2.0; // Have to make sure this is smaller than the masked value used earlier (-1.0)
+	for (int i=0; i<n_neighbours; i++) {
+		if (neighbour_idlenesses[i] > largest_i) {
+			target = neighbours[i];
+			largest_i = neighbour_idlenesses[i];
+		}
+	}
+
+	return target;
+  
+  }
 
 // ~~~~~~ RH-ARM ~~~~~~~
 
@@ -100,7 +147,9 @@ Path rh_arm(double time, uint current_vertex, double horizon_length, double *ins
     }
 	
 	// Plan next action
-	auto [best_path, reward] = best_path_astar(current_vertex, time, horizon_length, instantaneous_idleness, adj, node_node_distances, projected_node_visit_times);
+	Path best_path;
+	double reward;
+	tie(best_path, reward) = best_path_astar(current_vertex, time, horizon_length, instantaneous_idleness, adj, node_node_distances, projected_node_visit_times);
 		
 	cout << reward << "\n";
 	return best_path;
@@ -112,9 +161,9 @@ struct AStarNode {
     double reward;
 
     // Needed for the priority queue to order by decreasing (real + heuristic reward)
-    bool operator<(const AStarNode& other) const {
-        return reward < other.reward; // reversed priority in pq
-    }
+    // bool operator<(const AStarNode& other) const {
+    //     return reward < other.reward; // reversed priority in pq
+    // }
 };
 
 pair<Path, double> best_path_astar(int start, double start_time, double horizon_length, double *idlenesses, const vector<vector<double>>& adj, const vector<vector<double>>& node_node_distances, const vector<vector<double>>& projected_node_visit_times) {
@@ -131,7 +180,7 @@ pair<Path, double> best_path_astar(int start, double start_time, double horizon_
     // Priority queue with max-heap: larger reward gets higher priority
     using QueueEntry = pair<double, AStarNode>; // (priority, node)
     auto cmp = [](const QueueEntry& a, const QueueEntry& b) {
-        return a.first < b.first; // max-heap (priority = -reward)
+        return a.first < b.first; 
     };
     priority_queue<QueueEntry, vector<QueueEntry>, decltype(cmp)> open_set(cmp);
 
@@ -143,14 +192,15 @@ pair<Path, double> best_path_astar(int start, double start_time, double horizon_
     start_node.reward = 0.0;
     open_set.emplace(0.0, start_node);
 
-    while (!open_set.empty()) {
-        auto [priority, current] = open_set.top();
-        open_set.pop();
+	double priority;
+	AStarNode current; 
 
+    while (!open_set.empty()) {
+        tie(priority, current) = open_set.top();
+        open_set.pop();
         int at_node = get<0>(current.path.back());
         double t = get<1>(current.path.back());
         double r = current.reward;
-
         // Find neighbors that can be reached in time
         std::vector<int> neighbors;
         for (int i = 0; i < n_nodes; ++i) {
@@ -158,39 +208,36 @@ pair<Path, double> best_path_astar(int start, double start_time, double horizon_
                 neighbors.push_back(i);
             }
         }
-
         // Termination: no further reachable neighbors
         if (neighbors.empty()) {
             return { current.path, current.reward };
         }
-
         for (int target : neighbors) {
             double w = adj[at_node][target];
             double visit_t = t + w;
-
             // Extract self-visits to this target node
             vector<double> self_visits;
-            for (const auto& [node, time] : current.path) {
+            for (const auto& entry : current.path) {
+
+				int node;
+				double time;
+				tie(node, time) = entry;
                 if (node == target) {
                     self_visits.push_back(time);
                 }
             }
-
             double real_reward = r + step_reward(
                 start_time, end_time, t, idlenesses[target], w,
                 self_visits, projected_node_visit_times[target]
             );
-
             double heuristic_reward = astar_heuristic(
                 target, start_time, end_time, visit_t,
                 idlenesses, adj, node_node_distances
             );
-
             Path new_path = current.path;
             new_path.emplace_back(target, visit_t);
-
             AStarNode next_node = { new_path, real_reward };
-            double total_priority = -(real_reward + heuristic_reward); // A* priority
+            double total_priority = real_reward + heuristic_reward; // A* priority
             open_set.emplace(total_priority, next_node);
         }
     }
@@ -201,7 +248,7 @@ pair<Path, double> best_path_astar(int start, double start_time, double horizon_
 
 
 
-double astar_discount(double start_time, double arrival_time, double end_time) {
+double astar_discount(double start_time, double arrival_time) {
 
     return pow(0.95, arrival_time - start_time);
 }
@@ -215,13 +262,41 @@ double step_reward(
     const vector<double>& self_visits,
     const vector<double>& other_visits
 ) {
-    double remaining_horizon = end_time - (current_time + weight);
-    double horizon = end_time - start_time;
+    // double remaining_horizon = end_time - (current_time + weight);
+    // double horizon = end_time - start_time;
 
-    double alpha = current_time - idleness;
-    double arrival_time = current_time + weight;
+    // double alpha = current_time - idleness;
+    // double arrival_time = current_time + weight;
 
-    vector<double> visits = self_visits;
+	// for (double v : self_visits) {
+	// 	cout << v << " ";
+	// }
+	// cout << "\n";
+	// for (double v : other_visits) {
+	// 	cout << v << " ";
+	// }
+	// cout << "\n";
+
+    // vector<double> visits = self_visits;
+    // visits.insert(visits.end(), other_visits.begin(), other_visits.end());
+    // sort(visits.begin(), visits.end());
+	// for (double v : visits) {
+	// 	cout << v << " ";
+	// }
+	// cout << "\n";
+    // for (double visit : visits) {
+    //     if (visit <= arrival_time && visit > alpha) {
+    //         alpha = visit;
+    //     }
+    // }
+    // double raw_reward = (arrival_time - alpha) * remaining_horizon;
+    // double discount_factor = astar_discount(start_time, arrival_time);
+
+	double arrival_time = current_time + weight;
+	double alpha = current_time - idleness;
+	double beta = end_time;
+
+	vector<double> visits = self_visits;
     visits.insert(visits.end(), other_visits.begin(), other_visits.end());
     sort(visits.begin(), visits.end());
 
@@ -229,10 +304,13 @@ double step_reward(
         if (visit <= arrival_time && visit > alpha) {
             alpha = visit;
         }
+		if (visit >= arrival_time && visit < beta) {
+			beta = visit;
+		}
     }
 
-    double raw_reward = (arrival_time - alpha) * remaining_horizon;
-    double discount_factor = astar_discount(start_time, arrival_time, end_time);
+	double raw_reward = (arrival_time - alpha) * (beta - arrival_time);
+	double discount_factor = astar_discount(start_time, arrival_time);
 
     return raw_reward * discount_factor;
 }
@@ -252,7 +330,7 @@ double astar_heuristic(
 
     double discount_window = 0.0;
     for (double ts = current_time; ts <= end_time; ts += 1.0) {
-        discount_window += astar_discount(start_time, ts, end_time);
+        discount_window += astar_discount(start_time, ts);
     }
 
     int n = adj.size();

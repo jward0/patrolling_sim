@@ -184,6 +184,10 @@ add_executable(RHARM src/RHARM_Agent.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(RHARM PatrolAgent ${catkin_LIBRARIES})
 
+add_executable(CRA src/CRA_Agent.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(CRA PatrolAgent ${catkin_LIBRARIES})
+
 ## Declare a cpp executable 
 add_executable(CBLS src/CBLS_Agent.cpp)
 ## Specify libraries to link a library or executable target against
