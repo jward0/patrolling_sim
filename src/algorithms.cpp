@@ -365,66 +365,6 @@ double astar_heuristic(
 
 // ~~~ ER ~~~
 
-uint expected_reactive (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, double *estimate_last_visits, double edge_avg, double current_time) {
-
-  //number of neighbors of current vertex (number of existing possibilites)
-  uint num_neighs = vertex_web[current_vertex].num_neigh;
-  uint next_vertex;
-  
-  if (num_neighs > 1){
-    
-    double decision_table [num_neighs];
-    uint neighbors [num_neighs];
-    uint possibilities[num_neighs];
-     
-    uint i, hits=0;
-
-    double max_utility = -1;
-    double delta_time, estimate_time;
-    
-    for (i=0; i<num_neighs; i++){
-      neighbors[i] = vertex_web[current_vertex].id_neigh[i];		//neighbors table
-
-	  double weight = pow(pow((vertex_web[current_vertex].x - vertex_web[neighbors[i]].x), 2) + pow((vertex_web[current_vertex].y - vertex_web[neighbors[i]].y), 2), 0.5);
-
-     
-      delta_time = weight;
-
-      // if (delta_time<edge_avg) {delta_time = edge_avg;}
-
-	  estimate_time = current_time + delta_time;
-
-	  decision_table[i] = fabs(estimate_time - estimate_last_visits[neighbors[i]]);
-      
-      if (decision_table[i] > max_utility) {
-		  max_utility = decision_table[i];
-		  hits = 0;
-		  possibilities[hits] = neighbors[i];
-	  } else if (decision_table[i] == max_utility) {
-		  hits++;
-		  possibilities[hits] = neighbors[i];
-	  }
-	}
-
-    if(hits>0){	//more than one possibility (choose at random)
-      srand ( time(NULL) );
-      i = rand() % (hits+1) + 0; 	//0, ... ,hits
-	
-      //printf("rand integer = %d\n", i);
-      next_vertex = possibilities [i];		// random vertex with higher idleness
-      	
-      } else {
-		next_vertex = possibilities[hits];	//vertex with higher idleness
-      }
-    
-  } else {
-    next_vertex = vertex_web[current_vertex].id_neigh[0]; //only one possibility
-  }
-
-  return next_vertex;
-
-}
-
 
 uint expected_reactive (uint current_vertex, vertex *vertex_web, double *instantaneous_idleness, double *estimate_last_visits, double edge_avg, double current_time) {
 
