@@ -161,9 +161,9 @@ add_executable(S_SEBS src/S_SEBS_Agent.cpp)
 target_link_libraries(S_SEBS PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
-add_executable(R_SEBS src/R_SEBS_Agent.cpp)
+# add_executable(R_SEBS src/R_SEBS_Agent.cpp)
 ## Specify libraries to link a library or executable target against
-target_link_libraries(R_SEBS PatrolAgent ${catkin_LIBRARIES})
+# target_link_libraries(R_SEBS PatrolAgent ${catkin_LIBRARIES})
 
 ## Declare a cpp executable 
 add_executable(SPNS src/SPNS_Agent.cpp)
