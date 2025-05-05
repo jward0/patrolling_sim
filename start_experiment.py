@@ -31,10 +31,6 @@ Alg_names = [
         [ 'S_SEBS', 'S_SEBS'],
         [ 'R_SEBS', 'R_SEBS'],
         [ 'ER',   'ER'],
-<<<<<<< HEAD
-        [ 'SPNS', 'SPNS'],
-=======
->>>>>>> rharm_cra
         [ 'CBLS', 'CBLS' ],
         [ 'DTAG', 'DTAGreedy' ],
         [ 'DTAP', 'DTASSIPart' ],
